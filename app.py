@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker, Session
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 from config import engine
 from services import check_value_positive
@@ -14,12 +14,11 @@ Base.query = session.query_property()
 
 from models import *
 
-
 Base.metadata.create_all(bind=engine)
+
 
 @app.route('/balance/<string:user_id>', methods=['GET'])
 def current_balance(user_id: str):
-
     ''' Проверка баланса пользователя
     Ожидается GET запрос, в котором вместо поля user_id ожидается наименование пользователя
     '''
@@ -37,25 +36,32 @@ def current_balance(user_id: str):
 
 @app.route('/balance/<string:user_id>', methods=['POST'])
 def update_balance(user_id: str):
-
     ''' Изменения баланса пользователя'''
-
 
     try:
         params: dict = request.json
         instance = session.query(Balance).filter_by(user_id=user_id).one_or_none()
         if not instance and params['method'] == 'add' and check_value_positive(params['number']):
             instance = Balance(user_id=user_id, balance=params['number'])
+            instance_2 = Operations(user_id=user_id, type='Начисление', comment=params['comment'],
+                                    amount=params['number'])
             session.add(instance)
+            session.add(instance_2)
             session.commit()
             return jsonify({}), 201
         elif instance and params['method'] == 'add' and check_value_positive(params['number']):
             instance.balance += params['number']
+            instance_2 = Operations(user_id=user_id, type='Начисление', comment=params['comment'],
+                                    amount=params['number'])
+            session.add(instance_2)
             session.commit()
             return jsonify({}), 200
         elif instance and params['method'] == 'remove' and instance.balance >= params[
             'number'] and check_value_positive(params['number']):
             instance.balance -= params['number']
+            instance_2 = Operations(user_id=user_id, type='Списание', comment=params['comment'],
+                                    amount=params['number'])
+            session.add(instance_2)
             session.commit()
             return jsonify({}), 200
         elif instance and params['method'] == 'remove' and check_value_positive(params['number']):
@@ -68,9 +74,7 @@ def update_balance(user_id: str):
 
 @app.route('/transfer', methods=['POST'])
 def transfer():
-
     ''' Передача средств пользователю'''
-
 
     try:
         params: dict = request.json
@@ -85,12 +89,22 @@ def transfer():
         else:
             user_from.balance -= params['number']
             user_to.balance += params['number']
+            oper_from = Operations(user_id=params['user_id_from'],
+                                   type='Снятие переводом',
+                                   comment=params['comment'],
+                                   amount=params['number'])
+            oper_to = Operations(user_id=params['user_id_to'],
+                                 type='Пополнение переводом',
+                                 comment=params['comment'],
+                                 amount=params['number'])
+            session.add(oper_from)
+            session.add(oper_to)
             session.commit()
             return jsonify({}), 200
     except:
         return jsonify({'message': 'Некорректный запрос'}), 400
 
-
+def inf_transaction():
 
 
 @app.teardown_appcontext
