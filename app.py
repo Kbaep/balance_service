@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
+from flask_paginate import Pagination, get_page_parameter
 
 from config import engine
 from services import check_value_positive
@@ -24,6 +25,7 @@ def current_balance(user_id: str):
     '''
 
     instance = session.query(Balance).filter_by(user_id=user_id).one_or_none()
+    print(instance)
     if instance:
         return jsonify({
             'id': instance.id,
@@ -90,11 +92,11 @@ def transfer():
             user_from.balance -= params['number']
             user_to.balance += params['number']
             oper_from = Operations(user_id=params['user_id_from'],
-                                   type='Снятие переводом',
+                                   type='Списание переводом',
                                    comment=params['comment'],
                                    amount=params['number'])
             oper_to = Operations(user_id=params['user_id_to'],
-                                 type='Пополнение переводом',
+                                 type='Начисление переводом',
                                  comment=params['comment'],
                                  amount=params['number'])
             session.add(oper_from)
@@ -104,7 +106,39 @@ def transfer():
     except:
         return jsonify({'message': 'Некорректный запрос'}), 400
 
-def inf_transaction():
+
+@app.route('/transactions/<string:user_id>', methods=['GET'])
+def transactions(user_id: str):
+    '''Передача списка транзакций'''
+    # try:
+    # params: dict = request.json
+    user_transaction = session.query(Operations).filter(Operations.user_id == user_id).all()
+    # filter_transactions = []
+    # for i in user_transaction:
+    #     a = {}
+    #     a["id"] = i.id
+    #     a["user_id"] = i.user_id
+    #     a["type"] = i.type
+    #     a["comment"] = i.comment
+    #     a["create_time"] = i.create_time
+    #     a["amount"] = i.amount
+    #     filter_transactions.append(a)
+    filter_transactions={
+        "results": [{"id": m.id, "user_id": m.user_id} for m in user_transaction],
+        "pagination": {
+            "count": magazines.total,
+            "page": page,
+            "per_page": per_page,
+            "pages": magazines.pages,
+        },
+    }
+    print(type(filter_transactions))
+    return jsonify(filter_transactions), 200
+    #
+    #
+    #
+    # except:
+    #     return jsonify({'message': 'Некорректный запрос'}), 400
 
 
 @app.teardown_appcontext
