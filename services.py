@@ -6,3 +6,7 @@ def check_value_positive(value) -> bool:
         return True
     else:
         return False
+def currency_value_balance(balance, currency):
+    if currency == 'USD':
+        balance = balance/76
+        return balance

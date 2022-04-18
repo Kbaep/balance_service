@@ -4,7 +4,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from flask_paginate import Pagination, get_page_parameter
 
 from config import engine
-from services import check_value_positive
+from services import check_value_positive, currency_value_balance
 
 app = Flask(__name__)
 client = app.test_client()
@@ -18,23 +18,35 @@ from models import *
 Base.metadata.create_all(bind=engine)
 
 
-@app.route('/balance/<string:user_id>', methods=['GET'])
-def current_balance(user_id: str):
+@app.route('/balance/', methods=['GET'])
+def current_balance():
     ''' Проверка баланса пользователя
-    Ожидается GET запрос, в котором вместо поля user_id ожидается наименование пользователя
+    Ожидается GET запрос
     '''
-
-    instance = session.query(Balance).filter_by(user_id=user_id).one_or_none()
-    print(instance)
-    if instance:
-        return jsonify({
-            'id': instance.id,
-            'user_id': instance.user_id,
-            'balance': instance.balance,
-        }), 200
-    else:
-        return jsonify({'message': 'Пользователь ' + user_id + ' не существует'}), 400
-
+    try:
+        currency = request.args.get('currency', default=None, type=None)
+        user_id = request.args.get('user_id', default=None, type=None)
+        if user_id is None:
+            return jsonify({'message': 'Не указан пользователь'}), 400
+        else:
+            instance = session.query(Balance).filter_by(user_id=user_id).one_or_none()
+            if instance and currency is None:
+                return jsonify({
+                    'id': instance.id,
+                    'user_id': instance.user_id,
+                    'balance': instance.balance,
+                }), 200
+            elif instance and currency is not None:
+                currency_balance = currency_value_balance(instance.balance, currency)
+                return jsonify({
+                    'id': instance.id,
+                    'user_id': instance.user_id,
+                    'balance': currency_balance,
+                }), 200
+            else:
+                return jsonify({'message': 'Пользователь ' + user_id + ' не существует'}), 400
+    except:
+        return jsonify({'message': 'Некорректный запрос'}), 400
 
 @app.route('/balance/<string:user_id>', methods=['POST'])
 def update_balance(user_id: str):
@@ -112,7 +124,25 @@ def transactions(user_id: str):
     '''Передача списка транзакций'''
     # try:
     # params: dict = request.json
-    user_transaction = session.query(Operations).filter(Operations.user_id == user_id).all()
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int)
+    user_transaction = session.query(Operations).filter(Operations.user_id == user_id).paginate(page=page,
+                                                                                                per_page=per_page)
+    data = []
+    print('123')
+    for bookmark in user_transaction.items:
+        data.append({
+            'id': bookmark.id,
+            'user_id': bookmark.user_id,
+            'type': bookmark.type,
+            'comment': bookmark.comment,
+            'create_time': bookmark.create_time,
+            'amount': bookmark.amount
+        })
+
+
+    return jsonify({'data': data}), 200
+
     # filter_transactions = []
     # for i in user_transaction:
     #     a = {}
@@ -123,17 +153,8 @@ def transactions(user_id: str):
     #     a["create_time"] = i.create_time
     #     a["amount"] = i.amount
     #     filter_transactions.append(a)
-    filter_transactions={
-        "results": [{"id": m.id, "user_id": m.user_id} for m in user_transaction],
-        "pagination": {
-            "count": magazines.total,
-            "page": page,
-            "per_page": per_page,
-            "pages": magazines.pages,
-        },
-    }
-    print(type(filter_transactions))
-    return jsonify(filter_transactions), 200
+    # print(type(filter_transactions))
+    # return jsonify(filter_transactions), 200
     #
     #
     #
