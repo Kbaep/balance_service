@@ -1,7 +1,6 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
-from flask_paginate import Pagination, get_page_parameter
 
 from config import engine
 from services import check_value_positive, currency_value_balance
@@ -38,15 +37,20 @@ def current_balance():
                 }), 200
             elif instance and currency is not None:
                 currency_balance = currency_value_balance(instance.balance, currency)
-                return jsonify({
-                    'id': instance.id,
-                    'user_id': instance.user_id,
-                    'balance': currency_balance,
-                }), 200
+                if type(currency_balance) == int or type(currency_balance) == float:
+                    return jsonify({
+                        'id': instance.id,
+                        'user_id': instance.user_id,
+                        'balance': round(currency_balance, 2),
+                        'currency': currency
+                    }), 200
+                else:
+                    raise
             else:
                 return jsonify({'message': 'Пользователь ' + user_id + ' не существует'}), 400
     except:
         return jsonify({'message': 'Некорректный запрос'}), 400
+
 
 @app.route('/balance/<string:user_id>', methods=['POST'])
 def update_balance(user_id: str):
@@ -119,47 +123,40 @@ def transfer():
         return jsonify({'message': 'Некорректный запрос'}), 400
 
 
-@app.route('/transactions/<string:user_id>', methods=['GET'])
-def transactions(user_id: str):
-    '''Передача списка транзакций'''
-    # try:
-    # params: dict = request.json
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 5, type=int)
-    user_transaction = session.query(Operations).filter(Operations.user_id == user_id).paginate(page=page,
-                                                                                                per_page=per_page)
-    data = []
-    print('123')
-    for bookmark in user_transaction.items:
-        data.append({
-            'id': bookmark.id,
-            'user_id': bookmark.user_id,
-            'type': bookmark.type,
-            'comment': bookmark.comment,
-            'create_time': bookmark.create_time,
-            'amount': bookmark.amount
-        })
-
-
-    return jsonify({'data': data}), 200
-
-    # filter_transactions = []
-    # for i in user_transaction:
-    #     a = {}
-    #     a["id"] = i.id
-    #     a["user_id"] = i.user_id
-    #     a["type"] = i.type
-    #     a["comment"] = i.comment
-    #     a["create_time"] = i.create_time
-    #     a["amount"] = i.amount
-    #     filter_transactions.append(a)
-    # print(type(filter_transactions))
-    # return jsonify(filter_transactions), 200
-    #
-    #
-    #
-    # except:
-    #     return jsonify({'message': 'Некорректный запрос'}), 400
+@app.route('/transactions/', methods=['GET'])
+def history_transactions():
+    try:
+        user_id = request.args.get('user_id', default=None, type=None)
+        sort = request.args.get('sort', default=None, type=None)
+        reverse = request.args.get('reverse', default=None, type=None)
+        instance = session.query(Balance).filter_by(user_id=user_id).one_or_none()
+        if instance is None:
+            return jsonify({'message': 'Пользователь ' + user_id + ' не существует'}), 400
+        user_transaction = session.query(Operations).filter(Operations.user_id == user_id)
+        filter_transactions = []
+        for i in user_transaction:
+            a = {}
+            a["id"] = i.id
+            a["user_id"] = i.user_id
+            a["type"] = i.type
+            a["comment"] = i.comment
+            a["create_time"] = i.create_time
+            a["amount"] = i.amount
+            filter_transactions.append(a)
+        if sort == 'amount' and reverse is None:
+            return jsonify(sorted(filter_transactions, key=lambda d: d['amount'], reverse=False)), 200
+        elif sort == 'amount' and reverse.lower() == 'true':
+            return jsonify(sorted(filter_transactions, key=lambda d: d['amount'], reverse=True)), 200
+        elif sort == 'create_time' and reverse == None:
+            return jsonify(sorted(filter_transactions, key=lambda d: d['create_time'], reverse=False)), 200
+        elif sort == 'create_time' and reverse.lower() == 'true':
+            return jsonify(sorted(filter_transactions, key=lambda d: d['create_time'], reverse=True)), 200
+        elif sort is None:
+            return jsonify(sorted(filter_transactions, key=lambda d: d['create_time'], reverse=True)), 200
+        else:
+            raise
+    except:
+        return jsonify({'message': 'Некорректный запрос'}), 400
 
 
 @app.teardown_appcontext
