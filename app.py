@@ -1,11 +1,11 @@
 from flask import Flask, jsonify, request
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
-
-from config import engine
+from config import get_session
 from services import check_value_positive, currency_value_balance
 
 app = Flask(__name__)
+engine = get_session(app.config['ENV'])
 client = app.test_client()
 session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
