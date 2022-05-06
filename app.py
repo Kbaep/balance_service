@@ -5,7 +5,7 @@ from config import get_session
 from services import check_value_positive, currency_value_balance
 
 app = Flask(__name__)
-engine = get_session(app.config['ENV'])
+engine = get_session()
 client = app.test_client()
 session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 

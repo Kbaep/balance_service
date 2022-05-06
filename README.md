@@ -11,6 +11,10 @@ Microservice for working with user balance flask реализован микро
 В файле `requirements.txt`, указан список использующихся библиотек. Его можно установить по команде в консоле: pip
 install -r requirements.txt
 
+Для запуска продуктивного файла, тогда запустить - python app.py
+
+Для запуска тестового файла - pytest tests.py
+
 # Методы:
 
 ## Метод current_balance принимает наименование пользователя и возвращает информацию о балансе пользователя и его id.
