@@ -4,11 +4,6 @@ import json
 Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
-# def init_test(env, base, engine):
-#     if env != 'production' and env != 'development':
-#         base.metadata.drop_all(bind=engine)
-#         base.metadata.create_all(bind=engine)
-
 def test_get_no_user():
     # Проверка, отсутствие пользователя в БД
     response = client.get('/balance/?user_id=test_1')

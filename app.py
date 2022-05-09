@@ -3,6 +3,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker
 from config import get_session
 from services import check_value_positive, currency_value_balance
+import dotenv
+import os
+
+dotenv.load_dotenv('.env')
 
 app = Flask(__name__)
 engine = get_session()
@@ -14,6 +18,7 @@ Base.query = session.query_property()
 
 from models import *
 
+# Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 
